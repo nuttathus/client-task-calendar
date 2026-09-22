@@ -773,36 +773,30 @@ btnExportData.addEventListener('click', () => {
 });
 
 // 8. นำเข้าข้อมูลจากไฟล์ JSON (Import)
-if (btnImportData && importFileInput) {
-  btnImportData.addEventListener('click', () => {
-    importFileInput.click();
-  });
+window.handleImportFile = function(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
 
-  importFileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const importedTasks = JSON.parse(event.target.result);
-        if (Array.isArray(importedTasks)) {
-          if (confirm(`พบข้อมูลจำนวน ${importedTasks.length} รายการ คุณต้องการนำเข้าข้อมูลชุดนี้ใช่หรือไม่?`)) {
-            state.tasks = importedTasks;
-            saveTasks();
-            alert('นำเข้าข้อมูลสำเร็จเรียบร้อยแล้ว!');
-          }
-        } else {
-          alert('รูปแบบไฟล์ไม่ถูกต้อง กรุณาใช้ไฟล์สำรอง .json ที่ดาวน์โหลดจากระบบ');
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const importedTasks = JSON.parse(event.target.result);
+      if (Array.isArray(importedTasks)) {
+        if (confirm(`พบข้อมูลจำนวน ${importedTasks.length} รายการ คุณต้องการนำเข้าข้อมูลชุดนี้ใช่หรือไม่?`)) {
+          state.tasks = importedTasks;
+          saveTasks();
+          alert('นำเข้าข้อมูลสำเร็จเรียบร้อยแล้ว!');
         }
-      } catch (err) {
-        alert('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + err.message);
+      } else {
+        alert('รูปแบบไฟล์ไม่ถูกต้อง กรุณาใช้ไฟล์สำรอง .json ที่ดาวน์โหลดจากระบบ');
       }
-      importFileInput.value = '';
-    };
-    reader.readAsText(file);
-  });
-}
+    } catch (err) {
+      alert('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + err.message);
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+};
 
 // 9. ปุ่มสลับ Dark / Light Theme
 if (btnThemeToggle) {
