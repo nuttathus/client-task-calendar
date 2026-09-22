@@ -1,0 +1,208 @@
+/* style.css: ปรับแต่งสไตล์และแอนิเมชันสำหรับ Client Task Calendar */
+
+/* Smooth font rendering */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ปรับแต่ง Calendar Grid Cells */
+.calendar-cell {
+  min-height: 100px;
+  border-right: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.15s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.calendar-cell:hover {
+  background-color: #f8fafc;
+}
+
+.calendar-cell.other-month {
+  background-color: #fafbfc;
+  opacity: 0.55;
+}
+
+.calendar-cell.is-today {
+  background-color: #f5f3ff;
+}
+
+.calendar-cell.is-today .day-number {
+  background-color: #4f46e5;
+  color: #ffffff;
+  border-radius: 9999px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.day-number {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1;
+}
+
+/* Event Badges in Calendar */
+.task-pill {
+  font-size: 0.65rem;
+  line-height: 1.15;
+  padding: 3px 6px;
+  border-radius: 6px;
+  margin-bottom: 3px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  border-width: 1px;
+}
+
+.task-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Status colors for task pill */
+.task-pill-due-pending {
+  background-color: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.task-pill-due-overdue {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+  font-weight: 600;
+}
+
+.task-pill-due-completed {
+  background-color: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
+  text-decoration: line-through;
+  opacity: 0.85;
+}
+
+.task-pill-created {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Dark Mode Overrides for Calendar */
+.dark .calendar-cell {
+  border-right-color: #334155;
+  border-bottom-color: #334155;
+}
+
+.dark .calendar-cell:hover {
+  background-color: #1e293b;
+}
+
+.dark .calendar-cell.other-month {
+  background-color: #0f172a;
+  opacity: 0.45;
+}
+
+.dark .calendar-cell.is-today {
+  background-color: #1e1b4b;
+}
+
+.dark .calendar-cell.is-today .day-number {
+  background-color: #6366f1;
+  color: #ffffff;
+}
+
+.dark .day-number {
+  color: #94a3b8;
+}
+
+/* Dark Mode Task Pills */
+.dark .task-pill-due-pending {
+  background-color: #451a03;
+  color: #fde68a;
+  border-color: #78350f;
+}
+
+.dark .task-pill-due-overdue {
+  background-color: #450a0a;
+  color: #fecaca;
+  border-color: #7f1d1d;
+}
+
+.dark .task-pill-due-completed {
+  background-color: #052e16;
+  color: #86efac;
+  border-color: #14532d;
+}
+
+.dark .task-pill-created {
+  background-color: #1e293b;
+  color: #94a3b8;
+  border-color: #334155;
+}
+
+/* Modal Animations */
+#task-modal:not(.hidden),
+#day-detail-modal:not(.hidden) {
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+

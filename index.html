@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบจดบันทึกงานและปฏิทินส่งงานลูกค้า (Client Task Calendar)</title>
+  <!-- Google Fonts: Prompt -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
+
+  <!-- Header -->
+  <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-sm transition-colors duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-100 dark:shadow-none">
+          <i data-lucide="calendar-clock" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 dark:text-white leading-tight">ระบบจดบันทึกงานและกำหนดส่งลูกค้า</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400">ติดตามงาน สรุปงานค้างส่ง และปฏิทินงานรายเดือน</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <!-- ปุ่มสลับ Dark / Light Mode -->
+        <button id="btn-theme-toggle" class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" title="สลับโหมด มืด/สว่าง">
+          <i id="theme-icon" data-lucide="moon" class="w-4 h-4"></i>
+        </button>
+
+        <button id="btn-export-data" class="text-xs sm:text-sm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium transition flex items-center space-x-1.5" title="สำรองข้อมูลเป็นไฟล์">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">สำรองข้อมูล</span>
+        </button>
+
+        <button id="btn-open-add-modal" class="text-xs sm:text-sm px-3 sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm hover:shadow transition flex items-center space-x-1.5">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>+ จดงานใหม่</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col lg:flex-row gap-6">
+    
+    <!-- Sidebar: สรุปงานค้างส่ง & งานด่วน & ตัวกรอง -->
+    <aside class="w-full lg:w-80 flex-shrink-0 flex flex-col gap-5">
+      
+      <!-- กล่องค้นหา & กรองงาน -->
+      <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-200">
+        <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3 flex items-center space-x-2">
+          <i data-lucide="filter" class="w-4 h-4 text-indigo-600 dark:text-indigo-400"></i>
+          <span>ค้นหาและกรองงาน</span>
+        </h3>
+        
+        <div class="space-y-3">
+          <!-- ช่องค้นหา -->
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+            <input type="text" id="search-input" placeholder="ค้นชื่องาน หรือชื่อลูกค้า..." 
+                   class="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-slate-700/70 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+          </div>
+
+          <!-- ตัวกรองสถานะ -->
+          <div>
+            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">สถานะงาน</label>
+            <select id="filter-status" class="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white dark:bg-slate-700/70 text-slate-800 dark:text-slate-100 transition">
+              <option value="all">ทุกสถานะ</option>
+              <option value="pending">รอดำเนินการ</option>
+              <option value="in_progress">กำลังทำ</option>
+              <option value="waiting">รอส่งมอบ / รอลูกค้า</option>
+              <option value="completed">ส่งมอบเรียบร้อยแล้ว</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- กล่องสรุปสถานะสถิติ -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-200">
+          <div class="text-xs text-slate-500 dark:text-slate-400">งานทั้งหมด</div>
+          <div id="stat-total" class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">0</div>
+        </div>
+        <div class="bg-amber-50 dark:bg-amber-950/40 p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/60 shadow-sm transition-colors duration-200">
+          <div class="text-xs text-amber-700 dark:text-amber-300 font-medium">งานค้างส่ง</div>
+          <div id="stat-pending" class="text-2xl font-bold text-amber-800 dark:text-amber-200 mt-1">0</div>
+        </div>
+        <div class="bg-rose-50 dark:bg-rose-950/40 p-3.5 rounded-xl border border-rose-200 dark:border-rose-900/60 shadow-sm transition-colors duration-200">
+          <div class="text-xs text-rose-700 dark:text-rose-300 font-medium">เกินกำหนดส่ง</div>
+          <div id="stat-overdue" class="text-2xl font-bold text-rose-800 dark:text-rose-200 mt-1">0</div>
+        </div>
+        <div class="bg-emerald-50 dark:bg-emerald-950/40 p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/60 shadow-sm transition-colors duration-200">
+          <div class="text-xs text-emerald-700 dark:text-emerald-300 font-medium">ส่งแล้วเสร็จ</div>
+          <div id="stat-completed" class="text-2xl font-bold text-emerald-800 dark:text-emerald-200 mt-1">0</div>
+        </div>
+      </div>
+
+      <!-- รายการงานค้างส่ง / ใกล้กำหนดส่ง -->
+      <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-1 flex flex-col transition-colors duration-200">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center space-x-2">
+            <i data-lucide="alert-circle" class="w-4 h-4 text-amber-500"></i>
+            <span>งานใกล้กำหนด / ค้างส่ง</span>
+          </h3>
+          <span id="urgent-badge-count" class="text-xs bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full font-medium">0</span>
+        </div>
+
+        <div id="urgent-tasks-list" class="space-y-2.5 overflow-y-auto max-h-[380px] pr-1">
+          <!-- JavaScript จะเรนเดอร์งานตรงนี้ -->
+          <div class="text-center py-8 text-slate-400 dark:text-slate-500 text-xs">ไม่มีงานค้างส่งในขณะนี้ 🎉</div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Main Calendar Area -->
+    <section class="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 sm:p-6 overflow-hidden transition-colors duration-200">
+      
+      <!-- Calendar Header & Controls -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-700">
+        
+        <!-- เดือน & ปี และปุ่มเปลี่ยนเดือน -->
+        <div class="flex items-center space-x-3">
+          <div class="flex items-center bg-slate-100 dark:bg-slate-700 p-1 rounded-xl transition-colors duration-200">
+            <button id="btn-prev-month" class="p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 transition shadow-none hover:shadow-sm" title="เดือนก่อนหน้า">
+              <i data-lucide="chevron-left" class="w-5 h-5"></i>
+            </button>
+            <button id="btn-today" class="px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition shadow-none hover:shadow-sm">
+              วันนี้
+            </button>
+            <button id="btn-next-month" class="p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 transition shadow-none hover:shadow-sm" title="เดือนถัดไป">
+              <i data-lucide="chevron-right" class="w-5 h-5"></i>
+            </button>
+          </div>
+          <h2 id="calendar-month-year" class="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100">
+            กันยายน 2569
+          </h2>
+        </div>
+
+        <!-- ตัวสลับมุมมอง & คำอธิบายสัญลักษณ์สี -->
+        <div class="flex items-center flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <span class="inline-flex items-center space-x-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-900/60">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span>กำหนดส่ง</span>
+          </span>
+          <span class="inline-flex items-center space-x-1 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 px-2 py-1 rounded-md border border-rose-200 dark:border-rose-900/60">
+            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+            <span>เกินกำหนด</span>
+          </span>
+          <span class="inline-flex items-center space-x-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded-md border border-emerald-200 dark:border-emerald-900/60">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>ส่งแล้ว</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Quick Add Bar ด้านบนปฏิทิน -->
+      <div class="mt-4 p-3 bg-indigo-50/50 dark:bg-indigo-950/30 rounded-xl border border-indigo-100 dark:border-indigo-900/50 flex flex-col md:flex-row items-stretch md:items-center gap-2 transition-colors duration-200">
+        <div class="text-xs font-semibold text-indigo-900 dark:text-indigo-200 flex items-center space-x-1.5 whitespace-nowrap">
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400"></i>
+          <span>จดงานด่วน:</span>
+        </div>
+        <input type="text" id="quick-input-title" placeholder="ชื่องาน เช่น ทำใบเสนอราคา..." class="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+        <input type="text" id="quick-input-client" placeholder="ลูกค้า เช่น บ.ไทยพัฒนา" class="w-full md:w-36 px-3 py-1.5 text-xs bg-white dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+        <div class="flex items-center space-x-1">
+          <span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">ส่ง:</span>
+          <input type="date" id="quick-input-duedate" class="px-2 py-1.5 text-xs bg-white dark:bg-slate-700 border border-indigo-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+        </div>
+        <button id="btn-quick-submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition whitespace-nowrap">
+          + บันทึก
+        </button>
+      </div>
+
+      <!-- ตารางปฏิทิน (Calendar Grid) -->
+      <div class="mt-4 flex-1 flex flex-col">
+        <!-- วันในสัปดาห์ (หัวตาราง) -->
+        <div class="grid grid-cols-7 text-center font-semibold text-xs text-slate-500 dark:text-slate-400 py-2 border-b border-slate-100 dark:border-slate-700">
+          <span class="text-rose-500 dark:text-rose-400">อาทิตย์</span>
+          <span>จันทร์</span>
+          <span>อังคาร</span>
+          <span>พุธ</span>
+          <span>พฤหัสบดี</span>
+          <span>ศุกร์</span>
+          <span class="text-indigo-600 dark:text-indigo-400">เสาร์</span>
+        </div>
+
+        <!-- ช่องวันที่ในปฏิทิน -->
+        <div id="calendar-grid" class="grid grid-cols-7 flex-1 min-h-[480px] border-l border-t border-slate-100 dark:border-slate-700">
+          <!-- JavaScript จะเรนเดอร์ช่องตารางที่นี่ -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: บันทึก / แก้ไขงานแบบละเอียด -->
+  <div id="task-modal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden transform transition-all">
+      
+      <!-- หัวข้อ Modal -->
+      <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/80">
+        <h3 id="modal-title" class="font-bold text-slate-800 dark:text-slate-100 text-base flex items-center space-x-2">
+          <i data-lucide="file-edit" class="w-5 h-5 text-indigo-600 dark:text-indigo-400"></i>
+          <span>จดงาน / กำหนดการใหม่</span>
+        </h3>
+        <button id="btn-close-modal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- แบบฟอร์ม Modal -->
+      <form id="task-form" class="p-6 space-y-4">
+        <input type="hidden" id="task-id">
+
+        <!-- ชื่องาน -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            ชื่องาน / รายการที่ต้องทำ <span class="text-rose-500">*</span>
+          </label>
+          <input type="text" id="task-title" required placeholder="เช่น ทำใบเสนอราคาโครงการ 1"
+                 class="w-full px-3.5 py-2 text-sm bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+        </div>
+
+        <!-- ชื่อลูกค้า -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            ลูกค้า / บริษัท / ผู้สั่งงาน <span class="text-rose-500">*</span>
+          </label>
+          <input type="text" id="task-client" required placeholder="เช่น บริษัท เอ บิซซิเนส จำกัด หรือ คุณสมชาย"
+                 class="w-full px-3.5 py-2 text-sm bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+        </div>
+
+        <!-- วันที่บันทึก & วันที่กำหนดส่ง -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              วันที่สั่ง / วันที่จด (เริ่ม)
+            </label>
+            <input type="date" id="task-created-date" required
+                   class="w-full px-3.5 py-2 text-sm bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              กำหนดส่งเอกสาร / ส่งงาน <span class="text-rose-500">*</span>
+            </label>
+            <input type="date" id="task-due-date" required
+                   class="w-full px-3.5 py-2 text-sm bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+          </div>
+        </div>
+
+        <!-- รายละเอียดงาน / เนื้อหา -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            รายละเอียดงาน / เนื้อหา / เงื่อนไข
+          </label>
+          <textarea id="task-details" rows="3" placeholder="เช่น 1. ร่างแบบ 2. จัดทำใบเสนอราคา 3. ส่งไฟล์ PDF ให้ลูกค้าตรวจ"
+                    class="w-full px-3.5 py-2 text-sm bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"></textarea>
+        </div>
+
+        <!-- สถานะ & ระดับความสำคัญ -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">สถานะงาน</label>
+            <select id="task-status" class="w-full px-3.5 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white dark:bg-slate-700/80 text-slate-800 dark:text-slate-100 transition">
+              <option value="pending">รอดำเนินการ</option>
+              <option value="in_progress">กำลังทำ</option>
+              <option value="waiting">รอส่งมอบ / รอลูกค้า</option>
+              <option value="completed">ส่งมอบเรียบร้อย</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">ความเร่งด่วน</label>
+            <select id="task-priority" class="w-full px-3.5 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white dark:bg-slate-700/80 text-slate-800 dark:text-slate-100 transition">
+              <option value="normal">ปกติ</option>
+              <option value="high">ด่วน</option>
+              <option value="urgent">ด่วนมาก ⚠️</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ปุ่มกดในฟอร์ม -->
+        <div class="pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+          <button type="button" id="btn-delete-task" class="px-3.5 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold rounded-xl transition hidden">
+            ลบงานนี้
+          </button>
+          <div class="flex items-center space-x-2 ml-auto">
+            <button type="button" id="btn-cancel-modal" class="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl transition">
+              ยกเลิก
+            </button>
+            <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm hover:shadow transition">
+              บันทึกข้อมูล
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: ดูรายละเอียดงานประจำวัน (เมื่อคลิกที่วันในปฏิทิน) -->
+  <div id="day-detail-modal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden transform transition-all">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/80">
+        <div>
+          <h3 id="day-detail-date" class="font-bold text-slate-800 dark:text-slate-100 text-sm">รายการงานวันที่ ...</h3>
+          <p id="day-detail-sub" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">รวมงานที่มีกำหนดส่งและงานที่เริ่มในวันนี้</p>
+        </div>
+        <button id="btn-close-day-modal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="day-tasks-container" class="p-5 space-y-3 max-h-[400px] overflow-y-auto">
+        <!-- รายการงานจะแสดงที่นี่ -->
+      </div>
+
+      <div class="p-4 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-100 dark:border-slate-700 flex justify-end">
+        <button id="btn-add-task-on-day" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition flex items-center space-x-1.5">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>+ เพิ่มงานในวันนี้</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-3 text-center text-xs text-slate-400 dark:text-slate-500 transition-colors duration-200">
+    Client Task & Schedule Calendar • ข้อมูลจัดเก็บในอุปกรณ์ของคุณอย่างปลอดภัย
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
