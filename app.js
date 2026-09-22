@@ -26,7 +26,10 @@ let state = {
   searchQuery: '',
   filterStatus: 'all',
   selectedDateForDayModal: null,
-  currentTheme: 'light' // 'light' หรือ 'dark'
+  currentTheme: 'light', // 'light' หรือ 'dark'
+  isCloudConnected: false,
+  cloudDb: null,
+  unsubscribeCloud: null
 };
 
 // ข้อมูลตัวอย่างเริ่มต้น (กรณีที่ยังไม่มีข้อมูลในเครื่อง)
@@ -222,6 +225,176 @@ function initTheme() {
 function toggleTheme() {
   const nextTheme = state.currentTheme === 'dark' ? 'light' : 'dark';
   applyTheme(nextTheme);
+}
+
+// --- การจัดการ Cloud Sync (Firebase Firestore) ---
+const CLOUD_CONFIG_KEY = 'firebase_custom_config';
+
+const btnOpenCloudModal = document.getElementById('btn-open-cloud-modal');
+const cloudStatusDot = document.getElementById('cloud-status-dot');
+const cloudStatusText = document.getElementById('cloud-status-text');
+const cloudModal = document.getElementById('cloud-modal');
+const btnCloseCloudModal = document.getElementById('btn-close-cloud-modal');
+const btnCancelCloudModal = document.getElementById('btn-cancel-cloud-modal');
+const btnSaveCloudConfig = document.getElementById('btn-save-cloud-config');
+const btnDisconnectCloud = document.getElementById('btn-disconnect-cloud');
+const cloudConfigInput = document.getElementById('cloud-config-input');
+const cloudModalDot = document.getElementById('cloud-modal-dot');
+const cloudModalStatus = document.getElementById('cloud-modal-status');
+const cloudModalSub = document.getElementById('cloud-modal-sub');
+
+function getFirebaseConfig() {
+  // 1. ตรวจสอบจาก LocalStorage ก่อน
+  try {
+    const custom = localStorage.getItem(CLOUD_CONFIG_KEY);
+    if (custom) {
+      const parsed = JSON.parse(custom);
+      if (parsed && parsed.apiKey && parsed.projectId) return parsed;
+    }
+  } catch (e) {}
+
+  // 2. ตรวจสอบจาก window.FIREBASE_CONFIG (ในไฟล์ firebase-config.js)
+  if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey && window.FIREBASE_CONFIG.projectId) {
+    return window.FIREBASE_CONFIG;
+  }
+
+  return null;
+}
+
+function updateCloudStatusUI(connected, errorMsg = '') {
+  state.isCloudConnected = connected;
+  if (connected) {
+    if (cloudStatusDot) {
+      cloudStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-400';
+    }
+    if (cloudStatusText) {
+      cloudStatusText.textContent = 'Cloud: เชื่อมต่อแล้ว 🟢';
+      cloudStatusText.className = 'text-xs text-emerald-600 dark:text-emerald-400 font-semibold hidden sm:inline';
+    }
+    if (cloudModalDot) {
+      cloudModalDot.className = 'w-3 h-3 rounded-full bg-emerald-500';
+    }
+    if (cloudModalStatus) {
+      cloudModalStatus.textContent = 'สถานะ: เชื่อมต่อ Cloud สำเร็จ (Real-time Sync) 🟢';
+      cloudModalStatus.className = 'text-emerald-600 dark:text-emerald-400 font-bold block';
+    }
+    if (cloudModalSub) {
+      cloudModalSub.textContent = 'ข้อมูลในคอมพิวเตอร์และมือถือจะซิงค์หากันสด ๆ อัตโนมัติ';
+    }
+  } else {
+    if (cloudStatusDot) {
+      cloudStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-slate-400';
+    }
+    if (cloudStatusText) {
+      cloudStatusText.textContent = 'Cloud Sync (โหมดในเครื่อง)';
+      cloudStatusText.className = 'text-xs text-slate-500 dark:text-slate-400 hidden sm:inline';
+    }
+    if (cloudModalDot) {
+      cloudModalDot.className = 'w-3 h-3 rounded-full bg-slate-400';
+    }
+    if (cloudModalStatus) {
+      cloudModalStatus.textContent = errorMsg 
+        ? `สถานะ: การเชื่อมต่อขัดข้อง (${errorMsg}) ⚠️` 
+        : 'สถานะ: โหมดใช้งานในเครื่อง (Local Mode) 🟡';
+      cloudModalStatus.className = 'text-slate-700 dark:text-slate-300 font-bold block';
+    }
+    if (cloudModalSub) {
+      cloudModalSub.textContent = errorMsg
+        ? 'กำลังใช้งานข้อมูลจากในเครื่องชั่วคราว'
+        : 'ข้อมูลจะถูกบันทึกเฉพาะในอุปกรณ์นี้ คลิกตั้งค่าเพื่อเชื่อมต่อ Cloud';
+    }
+  }
+}
+
+function initFirebase(showAlert = false) {
+  const config = getFirebaseConfig();
+  if (!config) {
+    updateCloudStatusUI(false);
+    return;
+  }
+
+  try {
+    if (typeof firebase === 'undefined') {
+      console.warn('Firebase SDK ยังไม่ถูกโหลด');
+      updateCloudStatusUI(false, 'ยังไม่โหลด SDK');
+      return;
+    }
+
+    // เริ่มต้น Firebase App
+    let app;
+    if (!firebase.apps.length) {
+      app = firebase.initializeApp(config);
+    } else {
+      app = firebase.app();
+    }
+
+    const db = firebase.firestore();
+    state.cloudDb = db;
+
+    // ยกเลิก listener เดิมก่อนถ้ามี
+    if (state.unsubscribeCloud) {
+      state.unsubscribeCloud();
+      state.unsubscribeCloud = null;
+    }
+
+    // ฟังการเปลี่ยนแปลงข้อมูลแบบ Real-time
+    state.unsubscribeCloud = db.collection('client_tasks').onSnapshot((snapshot) => {
+      const cloudTasks = [];
+      snapshot.forEach((doc) => {
+        cloudTasks.push({ id: doc.id, ...doc.data() });
+      });
+
+      // ถ้าใน Cloud มีข้อมูล ให้นำมาอัปเดตหน้าจอทันที
+      if (cloudTasks.length > 0) {
+        state.tasks = cloudTasks;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudTasks));
+        } catch (e) {}
+        render();
+      } else if (state.tasks.length > 0) {
+        // ถ้าใน Cloud ยังว่างเปล่าแต่ในเครื่องมีงาน ให้ดันงานจากเครื่องขึ้น Cloud
+        state.tasks.forEach(t => saveTaskToCloud(t));
+      }
+
+      updateCloudStatusUI(true);
+      if (showAlert) {
+        alert('เชื่อมต่อ Cloud Sync สำเร็จเรียบร้อยแล้ว! ข้อมูลจะซิงค์กันสด ๆ ทันที');
+      }
+    }, (error) => {
+      console.error('Firestore onSnapshot error:', error);
+      updateCloudStatusUI(false, error.code || error.message);
+      if (showAlert) {
+        alert('เชื่อมต่อ Cloud ไม่สำเร็จ: ' + error.message + '\nกรุณาตรวจสอบว่าสร้าง Firestore Database (Test mode) แล้วหรือยัง');
+      }
+    });
+
+  } catch (err) {
+    console.error('Firebase init error:', err);
+    updateCloudStatusUI(false, err.message);
+    if (showAlert) {
+      alert('เกิดข้อผิดพลาดในการตั้งค่า Firebase: ' + err.message);
+    }
+  }
+}
+
+function saveTaskToCloud(task) {
+  if (!state.isCloudConnected || !state.cloudDb || !task || !task.id) return;
+  try {
+    state.cloudDb.collection('client_tasks').doc(task.id).set(task, { merge: true })
+      .catch(err => console.error('Cloud save error:', err));
+  } catch (e) {
+    console.error('Cloud save exception:', e);
+  }
+}
+
+function deleteTaskFromCloud(taskId) {
+  if (!state.isCloudConnected || !state.cloudDb || !taskId) return;
+  try {
+    state.cloudDb.collection('client_tasks').doc(taskId).delete()
+      .catch(err => console.error('Cloud delete error:', err));
+  } catch (e) {
+    console.error('Cloud delete exception:', e);
+  }
 }
 
 // --- Render Logic ---
@@ -488,6 +661,7 @@ function renderUrgentList() {
       e.stopPropagation();
       task.status = 'completed';
       saveTasks();
+      saveTaskToCloud(task);
     });
 
     urgentTasksList.appendChild(item);
@@ -654,6 +828,7 @@ taskForm.addEventListener('submit', (e) => {
     const index = state.tasks.findIndex(t => t.id === id);
     if (index !== -1) {
       state.tasks[index] = { ...state.tasks[index], ...taskData };
+      saveTaskToCloud(state.tasks[index]);
     }
   } else {
     // สร้างงานใหม่
@@ -662,6 +837,7 @@ taskForm.addEventListener('submit', (e) => {
       ...taskData
     };
     state.tasks.push(newTask);
+    saveTaskToCloud(newTask);
   }
 
   saveTasks();
@@ -674,6 +850,7 @@ btnDeleteTask.addEventListener('click', () => {
   if (!id) return;
   if (confirm('คุณต้องการลบรายการงานนี้ใช่หรือไม่?')) {
     state.tasks = state.tasks.filter(t => t.id !== id);
+    deleteTaskFromCloud(id);
     saveTasks();
     closeModal();
   }
@@ -703,6 +880,7 @@ btnQuickSubmit.addEventListener('click', () => {
   };
 
   state.tasks.push(newTask);
+  saveTaskToCloud(newTask);
   saveTasks();
 
   quickInputTitle.value = '';
@@ -785,6 +963,10 @@ window.handleImportFile = function(e) {
         if (confirm(`พบข้อมูลจำนวน ${importedTasks.length} รายการ คุณต้องการนำเข้าข้อมูลชุดนี้ใช่หรือไม่?`)) {
           state.tasks = importedTasks;
           saveTasks();
+          // ถ้าเชื่อมต่อ Cloud ให้ดันงานทั้งหมดขึ้น Cloud ด้วย
+          if (state.isCloudConnected) {
+            importedTasks.forEach(t => saveTaskToCloud(t));
+          }
           alert('นำเข้าข้อมูลสำเร็จเรียบร้อยแล้ว!');
         }
       } else {
@@ -803,10 +985,80 @@ if (btnThemeToggle) {
   btnThemeToggle.addEventListener('click', toggleTheme);
 }
 
+// 10. จัดการ Cloud Sync Modal (Firebase)
+if (btnOpenCloudModal) {
+  btnOpenCloudModal.addEventListener('click', () => {
+    const currentCfg = localStorage.getItem(CLOUD_CONFIG_KEY);
+    if (currentCfg) {
+      cloudConfigInput.value = currentCfg;
+    } else if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey) {
+      cloudConfigInput.value = JSON.stringify(window.FIREBASE_CONFIG, null, 2);
+    }
+    cloudModal.classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+  });
+}
+
+if (btnCloseCloudModal) {
+  btnCloseCloudModal.addEventListener('click', () => cloudModal.classList.add('hidden'));
+}
+if (btnCancelCloudModal) {
+  btnCancelCloudModal.addEventListener('click', () => cloudModal.classList.add('hidden'));
+}
+
+if (btnSaveCloudConfig) {
+  btnSaveCloudConfig.addEventListener('click', () => {
+    const val = cloudConfigInput.value.trim();
+    if (!val) {
+      alert('กรุณาวางค่าคอนฟิก Firebase');
+      return;
+    }
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(val);
+    } catch (e) {
+      const match = val.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          parsed = new Function('return ' + match[0])();
+        } catch (err2) {
+          console.error('Parse error:', err2);
+        }
+      }
+    }
+
+    if (parsed && (parsed.apiKey || parsed.projectId)) {
+      localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(parsed, null, 2));
+      initFirebase(true);
+      cloudModal.classList.add('hidden');
+    } else {
+      alert('ไม่สามารถอ่านค่า Firebase Config ได้ กรุณาตรวจสอบว่ามี apiKey และ projectId ถูกต้อง');
+    }
+  });
+}
+
+if (btnDisconnectCloud) {
+  btnDisconnectCloud.addEventListener('click', () => {
+    if (confirm('คุณต้องการตัดการเชื่อมต่อ Cloud Sync และกลับสู่โหมดในเครื่อง (Local Mode) ใช่หรือไม่?')) {
+      localStorage.removeItem(CLOUD_CONFIG_KEY);
+      if (state.unsubscribeCloud) {
+        state.unsubscribeCloud();
+        state.unsubscribeCloud = null;
+      }
+      state.cloudDb = null;
+      updateCloudStatusUI(false);
+      cloudModal.classList.add('hidden');
+      alert('ตัดการเชื่อมต่อเรียบร้อยแล้ว ระบบจะทำงานในโหมดในเครื่อง (Local Mode)');
+    }
+  });
+}
+
 // ปิด Modal เมื่อคลิกนอกกล่อง
 window.addEventListener('click', (e) => {
   if (e.target === taskModal) closeModal();
   if (e.target === dayDetailModal) closeDayModal();
+  if (e.target === cloudModal) cloudModal.classList.add('hidden');
 });
 
 // --- เริ่มต้นการทำงาน (Init) ---
@@ -818,4 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
   quickInputDueDate.value = formatDateToISO(new Date());
 
   render();
+
+  // เริ่มต้นเชื่อมต่อ Firebase (ถ้ามีการตั้งค่าไว้)
+  initFirebase();
 });
